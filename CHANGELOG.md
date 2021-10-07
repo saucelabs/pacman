@@ -12,14 +12,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cover with more tests
 - Improve general code quality
 
+## [0.0.3] - 2021-10-07
+
+### Added
+
+- [x] `parser.Source` now returns the source of the PAC content.
+- [x] Added more tests.
+
+### Changed
+
+- `parser.Source` renamed to `parser.Content`.
+
+## [0.0.2] - 2021-10-07
+
+### Added
+
+- [x] Universal loader (text, file, remote).
+- [x] `parser.Source` returns the loaded PAC content.
+
 ## [0.0.1] - 2021-10-06
 
 ### Added/Removed/Changed
 
-- [x] Removed anything non-PAC parsing related
-- [x] Modernized code
-- [x] Made it work properly/fixed bugs/bad code
-- [x] Fixed/added more tests
+- [x] Removed anything non-PAC parsing related.
+- [x] Modernized code.
+- [x] Made it work properly/fixed bugs/bad code.
+- [x] Fixed/added more tests.
 
 ### Checklist
 
