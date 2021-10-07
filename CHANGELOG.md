@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cover with more tests
 - Improve general code quality
 
+## [0.0.2] - 2021-10-07
+
+### Added
+
+- [x] Universal loader (text, file, remote)
+- [x] `parser.Source` returns the loaded PAC content
+
 ## [0.0.1] - 2021-10-06
 
 ### Added/Removed/Changed

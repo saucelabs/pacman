@@ -73,8 +73,8 @@ func findProxy(t *testing.T, pac *pacman.Parser) {
 	}
 }
 
-func TestParser_From_file(t *testing.T) {
-	pacFromFile, err := pacman.From("resources/data.pac")
+func TestParser_New_fromfile(t *testing.T) {
+	pacFromFile, err := pacman.New("resources/data.pac")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestParser_From_file(t *testing.T) {
 	findProxy(t, pacFromFile)
 }
 
-func TestParser_From_web(t *testing.T) {
+func TestParser_New_fromweb(t *testing.T) {
 	pacData, err := os.Open("resources/data.pac")
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +99,7 @@ func TestParser_From_web(t *testing.T) {
 
 	defer pacServer.Close()
 
-	pacFromWeb, err := pacman.From(pacServer.URL)
+	pacFromWeb, err := pacman.New(pacServer.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +107,7 @@ func TestParser_From_web(t *testing.T) {
 	findProxy(t, pacFromWeb)
 }
 
-func TestParser_From_web_non2xx(t *testing.T) {
+func TestParser_New_fromweb_non2xx(t *testing.T) {
 	pacData, err := os.Open("resources/data.pac")
 	if err != nil {
 		t.Fatal(err)
@@ -124,18 +124,18 @@ func TestParser_From_web_non2xx(t *testing.T) {
 
 	defer pacServer.Close()
 
-	_, err = pacman.From(pacServer.URL)
+	_, err = pacman.New(pacServer.URL)
 	if err == nil {
 		t.Fatal("`From` expected error, got nil")
 	}
 }
 
-func TestParser_From_web_noBody(t *testing.T) {
+func TestParser_New_fromweb_noBody(t *testing.T) {
 	pacServer := createMockedHTTPServer(http.StatusOK, "")
 
 	defer pacServer.Close()
 
-	_, err := pacman.From(pacServer.URL)
+	_, err := pacman.New(pacServer.URL)
 
 	if err == nil {
 		t.Fatalf("`From` expected no error, got %+v", err)
@@ -146,12 +146,12 @@ func TestParser_From_web_noBody(t *testing.T) {
 	}
 }
 
-func TestParser_From_web_invalidBody(t *testing.T) {
+func TestParser_New_fromweb_invalidBody(t *testing.T) {
 	pacServer := createMockedHTTPServer(http.StatusOK, "invalid content")
 
 	defer pacServer.Close()
 
-	_, err := pacman.From(pacServer.URL)
+	_, err := pacman.New(pacServer.URL)
 
 	if err == nil {
 		t.Fatalf("`From` expected no error, got %+v", err)
@@ -192,7 +192,7 @@ func TestFindProxy_direct(t *testing.T) {
 		"ftp://example.com.com",
 	}
 
-	pac, err := pacman.From("resources/data.pac")
+	pac, err := pacman.New("resources/data.pac")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,6 +221,30 @@ func TestFindProxy_direct(t *testing.T) {
 		if p.URL() != "" {
 			t.Errorf("Expected `URL` to be empty got %s", p.URL())
 		}
+	}
+}
+
+func TestParser_New_noTextOrURI(t *testing.T) {
+	_, err := pacman.New("")
+
+	if err == nil {
+		t.Fatalf("`From` expected no error, got %+v", err)
+	}
+
+	if err.Error() != "missing PAC content (400 - Bad Request)" {
+		t.Fatalf("`From` expected error content, got %+v", err)
+	}
+}
+
+func TestParser_New_invalidTextOrURI(t *testing.T) {
+	_, err := pacman.New("invalid content")
+
+	if err == nil {
+		t.Fatalf("`From` expected no error, got %+v", err)
+	}
+
+	if err.Error() != "invalid PAC content. Missing `FindProxyForURL` (400 - Bad Request)" {
+		t.Fatalf("`From` expected error content, got %+v", err)
 	}
 }
 
