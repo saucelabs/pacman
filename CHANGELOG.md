@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cover with more tests
 - Improve general code quality
 
+## [0.0.4] - 2021-10-07
+
+- [x] Refresh registry.
+
 ## [0.0.3] - 2021-10-07
 
 ### Added
