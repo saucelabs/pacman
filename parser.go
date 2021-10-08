@@ -18,31 +18,23 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/saucelabs/customerror"
+	"github.com/saucelabs/pacman/internal/credential"
+	"github.com/saucelabs/pacman/internal/validation"
+	"github.com/saucelabs/sypl"
+	"github.com/saucelabs/sypl/fields"
+	"github.com/saucelabs/sypl/level"
+	"github.com/saucelabs/sypl/options"
 )
 
 const defaultRequestTimeout = 3
 
+type ProxiesCredentials map[string]*credential.BasicAuth
+
+var l *sypl.Sypl
+
 //////
 // Helpers.
 //////
-
-func validatePACContent(content string) error {
-	errMsgPrefix := "PAC content"
-
-	if content == "" {
-		return customerror.NewMissingError(errMsgPrefix, "", nil)
-	}
-
-	if !strings.Contains(content, "FindProxyForURL") {
-		return customerror.NewInvalidError(
-			errMsgPrefix+". Missing `FindProxyForURL`",
-			"",
-			nil,
-		)
-	}
-
-	return nil
-}
 
 func registerBuiltinNatives(vm *goja.Runtime) error {
 	for name, function := range builtinNatives {
@@ -60,11 +52,54 @@ func registerBuiltinJS(vm *goja.Runtime) error {
 	return err
 }
 
-// New create a parser from text content. You may want to call some of the
-// loaders (`fromFile`, `fromURL`).
-func initialize(source, text string) (*Parser, error) {
-	if err := validatePACContent(text); err != nil {
-		return nil, err
+// Associates a proxy - specified in PAC, with its credential.
+//
+// `proxiesURIs` is a list of URIs (`scheme://credential@host`) where:
+// - `credential` is `username:password`
+// - `host` is `hostname:port`.
+//
+// TODO: Store in `*url.URL` format instead of Credential.
+func processProxiesCredentials(proxiesURIs ...string) (ProxiesCredentials, error) {
+	// Initialize proxy's credential map
+	proxiesCredentials := make(ProxiesCredentials)
+
+	for _, proxyURI := range proxiesURIs {
+		// Should be a valid proxy URI.
+		if err := validation.Get().Var(proxyURI, "proxyURI"); err != nil {
+			return nil, customerror.NewInvalidError("PAC proxy URI", "", err)
+		}
+
+		parsedProxyURI, err := url.ParseRequestURI(proxyURI)
+		if err != nil {
+			return nil, customerror.New(
+				"Failed to parse PAC proxy URI",
+				"",
+				http.StatusBadRequest,
+				err,
+			)
+		}
+
+		// Should be a valid credential.
+		if err := validation.Get().Var(parsedProxyURI.User.String(), "basicAuth"); err != nil {
+			return nil, customerror.NewInvalidError("PAC proxy URI", "", err)
+		}
+
+		c, err := credential.NewBasicAuthFromText(parsedProxyURI.User.String())
+		if err != nil {
+			return nil, err
+		}
+
+		// Map host to credential.
+		proxiesCredentials[parsedProxyURI.Host] = c
+	}
+
+	return proxiesCredentials, nil
+}
+
+// Initializes Goja, parse PAC content, and process proxies credentials.
+func initialize(source, content string, proxiesURIs ...string) (*Parser, error) {
+	if err := validation.Get().Var(content, "pacTextOrURI"); err != nil {
+		return nil, customerror.NewInvalidError("params", "", err)
 	}
 
 	vm := goja.New()
@@ -77,18 +112,48 @@ func initialize(source, text string) (*Parser, error) {
 		return nil, err
 	}
 
-	if _, err := vm.RunString(text); err != nil {
+	if _, err := vm.RunString(content); err != nil {
 		return nil, err
 	}
 
-	return &Parser{
-		content: text,
-		source:  source,
-		vm:      vm,
-	}, nil
+	l.PrintlnWithOptions(&options.Options{
+		Fields: fields.Fields{
+			"content": "\n" + content,
+		},
+	}, level.Trace, "PAC")
+
+	// Associates a proxy - specified in PAC, with its credential - if any.
+	var proxiesCredentials ProxiesCredentials
+
+	if proxiesURIs != nil {
+		pC, err := processProxiesCredentials(proxiesURIs...)
+		if err != nil {
+			return nil, err
+		}
+
+		proxiesCredentials = pC
+	}
+
+	p := &Parser{
+		content:            content,
+		source:             source,
+		vm:                 vm,
+		proxiesCredentials: proxiesCredentials,
+	}
+
+	l.PrintlnWithOptions(&options.Options{
+		Fields: fields.Fields{
+			"source":     source,
+			"credential": proxiesCredentials,
+		},
+	}, level.Debug, "Parser created")
+
+	return p, nil
 }
 
-func fromReader(source string, r io.ReadCloser) (*Parser, error) {
+// Centralized PAC content reading. Optionally, receives a list of proxies URIs
+// which will be used to map each proxy to its credential.
+func fromReader(source string, r io.ReadCloser, proxiesURIs ...string) (*Parser, error) {
 	defer r.Close()
 
 	buf, err := ioutil.ReadAll(r)
@@ -96,21 +161,23 @@ func fromReader(source string, r io.ReadCloser) (*Parser, error) {
 		return nil, err
 	}
 
-	return initialize(source, string(buf))
+	return initialize(source, string(buf), proxiesURIs...)
 }
 
-// fromFile load pac from file.
-func fromFile(filename string) (*Parser, error) {
+// File loader. Optionally, receives a list of proxies URIs which will be
+// used to map each proxy to its credential.
+func fromFile(filename string, proxiesURIs ...string) (*Parser, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	return fromReader(filename, f)
+	return fromReader(filename, f, proxiesURIs...)
 }
 
-// fromURL load pac from url.
-func fromURL(uri string) (*Parser, error) {
+// Remote loader. Optionally, receives a list of proxies URIs which will be
+// used to map each proxy to its credential.
+func fromURL(uri string, proxiesURIs ...string) (*Parser, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout*time.Second)
 	defer cancel()
 
@@ -142,11 +209,13 @@ func fromURL(uri string) (*Parser, error) {
 	}
 
 	// Should only read body if request succeeded.
-	return fromReader(uri, resp.Body)
+	return fromReader(uri, resp.Body, proxiesURIs...)
 }
 
-func fromText(text string) (*Parser, error) {
-	return fromReader("text", ioutil.NopCloser(strings.NewReader(text)))
+// Direct text loader. Optionally, receives a list of proxies URIs which will be
+// used to map each proxy to its credential.
+func fromText(text string, proxiesURIs ...string) (*Parser, error) {
+	return fromReader("text", ioutil.NopCloser(strings.NewReader(text)), proxiesURIs...)
 }
 
 //////
@@ -155,10 +224,12 @@ func fromText(text string) (*Parser, error) {
 
 // Parser definition.
 type Parser struct {
-	content string
-	source  string
 	sync.Mutex
-	vm *goja.Runtime
+
+	content            string
+	proxiesCredentials ProxiesCredentials
+	source             string
+	vm                 *goja.Runtime
 }
 
 // Source of the PAC content.
@@ -171,15 +242,15 @@ func (p *Parser) Content() string {
 	return p.content
 }
 
-// FindProxyForURL finding proxy for url returns string like:
+// FindProxyForURL for the given `url`, returning as string, example:
 // "PROXY 4.5.6.7:8080; PROXY 7.8.9.10:8080; DIRECT".
-func (p *Parser) FindProxyForURL(urlstr string) (string, error) {
-	u, err := url.Parse(urlstr)
+func (p *Parser) FindProxyForURL(uri string) (string, error) {
+	u, err := url.Parse(uri)
 	if err != nil {
 		return "", err
 	}
 
-	f := fmt.Sprintf("FindProxyForURL('%s', '%s')", urlstr, u.Hostname())
+	f := fmt.Sprintf("FindProxyForURL('%s', '%s')", uri, u.Hostname())
 
 	// Go routine safe.
 	p.Lock()
@@ -189,46 +260,95 @@ func (p *Parser) FindProxyForURL(urlstr string) (string, error) {
 	p.Unlock()
 
 	if err != nil {
-		return "", customerror.NewFailedToError("call `FindProxyForURL`. Is that defined?", "", err)
+		return "", customerror.NewFailedToError(
+			"call `FindProxyForURL`. Is that defined?",
+			"",
+			err,
+		)
 	}
 
 	return r.String(), nil
 }
 
-// FindProxy find the proxy in pac and return a list of Proxy.
-func (p *Parser) FindProxy(urlstr string) ([]Proxy, error) {
-	ps, err := p.FindProxyForURL(urlstr)
+// FindProxy for the given `url`, returning a list of `Proxies`.
+//
+// Note: If the returned proxies requires credentials, and it was set when the
+// Parser was created (`proxiesURIs`), it will be automatically added to the
+// `Proxy`.
+func (p *Parser) FindProxy(uri string) ([]Proxy, error) {
+	proxiesAsString, err := p.FindProxyForURL(uri)
 	if err != nil {
 		return nil, err
 	}
 
-	return ParseProxy(ps), nil
+	parsedProxies, err := ParseProxy(proxiesAsString)
+	if err != nil {
+		return nil, err
+	}
+
+	// Adds credential - if any.
+	//
+	// TODO: Move it to `ParseProxy`.
+	for _, parsedProxy := range parsedProxies {
+		if parsedProxy.GetURI() != nil {
+			if credential, ok := p.proxiesCredentials[parsedProxy.GetURI().Host]; ok {
+				parsedProxy.uri.User = url.UserPassword(credential.Username, credential.Password)
+			}
+		}
+
+		l.PrintlnfWithOptions(&options.Options{
+			Fields: fields.Fields{
+				"proxy": parsedProxy.GetURI(),
+			},
+		}, level.Debug, "Proxy found for %s", uri)
+	}
+
+	return parsedProxies, nil
 }
 
 //////
 // Factory.
 //////
 
-// New is able to load PAC from many sources.
-// - Directly: `textOrURI` is the PAC content
-// - Remotely: `textOrURI` is a HTTP/HTTPS URI
-// - File: `textOrURI` points to a file (requires `.pac` extension).
-func New(textOrURI string) (*Parser, error) {
+// New is able to load PAC from many sources:
+// - Direct: `textOrURI` is the PAC content
+// - Remote: `textOrURI` is an HTTP/HTTPS URI
+// - File: `textOrURI` points to a file:
+//   - As per PAC spec, PAC file should have the `.pac` extension
+//   - Absolute and relative paths are supported
+//   - `file://` scheme is supported. It should be an absolute path.
+//
+// Notes:
+// - Optionally, credentials for each/any proxy specified in the PAC content can
+//   be set (`proxiesURIs`) using standard URI format. These credentials will be
+//   automatically set when `FindProxy` is called.
+// - URI is: scheme://credential@host/path` where:
+//   - `credential` is `username:password`, and is optional
+//   - `host` is `hostname:port`, and is optional.
+func New(textOrURI string, proxiesURIs ...string) (*Parser, error) {
+	l = sypl.NewDefault("pacman", level.Info).New("parser")
+
+	logLevelEnvVar := os.Getenv("PACMAN_LOG_LEVEL")
+
+	if logLevelEnvVar != "" {
+		l.GetOutput("console").SetMaxLevel(level.MustFromString(logLevelEnvVar))
+	}
+
+	if err := validation.Get().Var(textOrURI, "pacTextOrURI"); err != nil {
+		return nil, customerror.NewInvalidError("params", "", err)
+	}
+
 	// Remote loading.
 	if strings.HasPrefix(textOrURI, "http://") ||
 		strings.HasPrefix(textOrURI, "https://") {
-		return fromURL(textOrURI)
+		return fromURL(textOrURI, proxiesURIs...)
 	}
 
 	// File loading.
 	if strings.Contains(textOrURI, ".pac") {
-		return fromFile(textOrURI)
+		return fromFile(textOrURI, proxiesURIs...)
 	}
 
 	// Directly loading.
-	if strings.Contains(textOrURI, "FindProxyForURL") {
-		return fromText(textOrURI)
-	}
-
-	return nil, validatePACContent(textOrURI)
+	return fromText(textOrURI, proxiesURIs...)
 }

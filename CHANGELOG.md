@@ -9,8 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use Otto instead of Goja
 - Conform tests (format/style) with Goland standard
-- Cover with more tests
-- Improve general code quality
+- Move generated SOCKS (`socks.go`) client to internal
+
+## [0.0.5] - 2021-10-08
+
+- [x] Added Sypl.
+  - [x] `PACMAN_LOG_LEVEL` env var controls the logging level.
+- [x] Added `GetXYZ` accessors for private fields.
+- [x] Added the ability to set credentials for PAC proxies.
+- [x] Improved documentation.
+- [x] Added more tests, and covered more cases.
+- [x] Added more validation, and validators.
+- [x] Fixed some of the naming inconsistencies.
+- [x] Now the type of the PAC proxy is an enum (`mode`).
+- [x] Improved some of the matching algol using pre-compiled (optmized) regex.
+- [x] Started breaking down code into packages (`internal`, `pkg`).
 
 ## [0.0.4] - 2021-10-07
 

@@ -10,13 +10,13 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/saucelabs/pacman"
+	"github.com/saucelabs/pacman/pkg/mode"
 )
 
 // Creates a mocked HTTP server. Any error will throw a fatal error. Don't
@@ -58,16 +58,16 @@ func findProxy(t *testing.T, pac *pacman.Parser) {
 	}
 
 	for i, p := range proxies {
-		u, err := url.ParseRequestURI(p.URL())
-		if err != nil {
-			t.Fatalf("`ParseRequestURI` expected no error got %+v", err)
+		uri := p.GetURI()
+		if uri == nil {
+			t.Fatalf("`GetURI` expected not nil %+v", uri)
 		}
 
-		if u.String() != expectedProxies[i] {
-			t.Fatalf("`expectedProxies` to be %s got %s", expectedProxies[i], u.String())
+		if uri.String() != expectedProxies[i] {
+			t.Fatalf("`expectedProxies` to be %s got %s", expectedProxies[i], uri.String())
 		}
 
-		proxyPrefixedWithProxy := fmt.Sprintf("PROXY %s", u.String())
+		proxyPrefixedWithProxy := fmt.Sprintf("PROXY %s", uri.String())
 		if p.String() != proxyPrefixedWithProxy {
 			t.Errorf("expected %s to be prefixed with PROXY, got %s", p.String(), proxyPrefixedWithProxy)
 		}
@@ -142,7 +142,7 @@ func TestParser_New_fromweb_noBody(t *testing.T) {
 		t.Fatalf("`From` expected no error, got %+v", err)
 	}
 
-	if err.Error() != "missing PAC content (400 - Bad Request)" {
+	if !strings.Contains(err.Error(), "invalid params") {
 		t.Fatalf("`From` expected error content, got %+v", err)
 	}
 }
@@ -158,7 +158,7 @@ func TestParser_New_fromweb_invalidBody(t *testing.T) {
 		t.Fatalf("`From` expected no error, got %+v", err)
 	}
 
-	if err.Error() != "invalid PAC content. Missing `FindProxyForURL` (400 - Bad Request)" {
+	if !strings.Contains(err.Error(), "invalid params") {
 		t.Fatalf("`From` expected error content, got %+v", err)
 	}
 }
@@ -221,18 +221,14 @@ func TestFindProxy_direct(t *testing.T) {
 		}
 
 		p := proxies[0]
-		isDirect := p.IsDirect()
+		isDirect := p.GetMode() == mode.Direct
 
 		if !isDirect {
 			t.Fatalf("`IsDirect()` expected to be DIRECT got %v", isDirect)
 		}
 
-		if p.Address != "" {
-			t.Errorf("Expected `Address` to be empty got %s", p.Address)
-		}
-
-		if p.URL() != "" {
-			t.Errorf("Expected `URL` to be empty got %s", p.URL())
+		if p.GetURI() != nil {
+			t.Errorf("Expected `URI` to be nil %+v", p.GetURI())
 		}
 	}
 }
@@ -244,7 +240,7 @@ func TestParser_New_noTextOrURI(t *testing.T) {
 		t.Fatalf("`From` expected no error, got %+v", err)
 	}
 
-	if err.Error() != "missing PAC content (400 - Bad Request)" {
+	if !strings.Contains(err.Error(), "invalid params") {
 		t.Fatalf("`From` expected error content, got %+v", err)
 	}
 }
@@ -256,8 +252,28 @@ func TestParser_New_invalidTextOrURI(t *testing.T) {
 		t.Fatalf("`From` expected no error, got %+v", err)
 	}
 
-	if err.Error() != "invalid PAC content. Missing `FindProxyForURL` (400 - Bad Request)" {
+	if !strings.Contains(err.Error(), "invalid params") {
 		t.Fatalf("`From` expected error content, got %+v", err)
+	}
+}
+
+func TestParser_New_withProxyCredentials(t *testing.T) {
+	os.Setenv("PACMAN_LOG_LEVEL", "debug")
+	defer os.Unsetenv("PACMAN_LOG_LEVEL")
+
+	pacFromFile, err := pacman.New("resources/data.pac", "http://user:pass@4.5.6.7:8080")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	proxies, err := pacFromFile.FindProxy("http://www.example.com/")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	uriWithCredential := proxies[0].GetURI().String()
+	if uriWithCredential != "http://user:pass@4.5.6.7:8080" {
+		t.Fatalf("Expected proxy URI with creds, got %s", uriWithCredential)
 	}
 }
 

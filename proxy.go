@@ -6,16 +6,18 @@ package pacman
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/saucelabs/customerror"
+	"github.com/saucelabs/pacman/internal/validation"
+	"github.com/saucelabs/pacman/pkg/mode"
 )
 
-const (
-	NonDirectTypeAddsLen = 2
-	SOCKS5Number         = 5
-)
+const nonDirectTypeAddsLen = 2
 
-var re = regexp.MustCompile(`(?m)http|https|socks|socks5|quic`)
+var validProxySchemesRegex = regexp.MustCompile(`(?m)http|https|socks5|socks|quic`)
 
 //////
 // Helpers.
@@ -33,88 +35,100 @@ func split(source string, s rune) []string {
 
 // Proxy definition.
 type Proxy struct {
-	Address  string
-	Password string
-	Type     string
-	Username string
+	// The original address parsed from PAC content. If type (`m`) is DIRECT,
+	// address is empty.
+	address string
+
+	// The type of the proxy from the parsed PAC content.
+	mode mode.Mode
+
+	// The parsed proxy URI from the parsed PAC content.
+	uri *url.URL
 }
 
-// IsDirect tests whether it is using direct connection.
-func (p *Proxy) IsDirect() bool {
-	return p.Type == "DIRECT"
+// GetAddress returns the original address parsed from PAC content. If type
+// is `DIRECT`, returns empty.
+func (p *Proxy) GetAddress() string {
+	return p.address
 }
 
-// IsSOCKS test whether it is a socks proxy.
-func (p *Proxy) IsSOCKS() bool {
-	if len(p.Type) >= SOCKS5Number {
-		return p.Type[:SOCKS5Number] == "SOCKS"
+// GetType returns the mode of the proxy.
+func (p *Proxy) GetMode() mode.Mode {
+	return p.mode
+}
+
+// GetURI returns the proxy URI. If proxy mode is `DIRECT`, returns `nil`.
+func (p *Proxy) GetURI() *url.URL {
+	if p.mode == "DIRECT" {
+		return nil
 	}
 
-	return false
+	return p.uri
 }
 
-// URL returns a url representation.
-func (p *Proxy) URL() string {
-	switch p.Type {
-	case "DIRECT":
-		return ""
-	case "PROXY":
-		if !re.MatchString(p.Address) {
-			p.Address = fmt.Sprintf("http://%s", p.Address)
-		}
-
-		return p.Address
-	default:
-		return fmt.Sprintf("%s://%s", strings.ToLower(p.Type), p.Address)
-	}
-}
-
+// String is the Stringer interface implementation. Returns mode is `DIRECT`,
+// otherwise returns `{MODE} {URI}`.
 func (p *Proxy) String() string {
-	if p.IsDirect() {
-		return p.Type
+	if p.GetMode() == mode.Direct {
+		return p.GetMode().String()
 	}
 
-	return fmt.Sprintf("%s %s", p.Type, p.Address)
+	return fmt.Sprintf("%s %s", p.GetMode(), p.GetURI())
 }
 
-// ParseProxy parses proxy string returned by `FindProxyForURL` and returns a
-// slice of proxies.
-func ParseProxy(pstr string) []Proxy {
+// ParseProxy parses proxy string returned by `FindProxyForURL`, and returns a
+// list of proxies.
+func ParseProxy(pstr string) ([]Proxy, error) {
+	const errMsgPrefix = "parse PAC proxy URI"
+
 	var proxies []Proxy
 
 	for _, p := range split(pstr, ';') {
-		typeAddr := strings.Fields(p)
+		modeAndAddress := strings.Fields(p)
 
-		if len(typeAddr) == NonDirectTypeAddsLen {
-			typ := strings.ToUpper(typeAddr[0])
+		if len(modeAndAddress) == nonDirectTypeAddsLen {
+			m := strings.ToUpper(modeAndAddress[0]) // mode.
 
-			addr := typeAddr[1]
+			address := modeAndAddress[1]
 
-			var user, pass string
+			if address == "" {
+				return nil, customerror.NewInvalidError(errMsgPrefix+", empty", "", nil)
+			}
 
-			if at := strings.Index(addr, "@"); at > 0 {
-				auth := split(addr[:at], ':')
-
-				if len(auth) == NonDirectTypeAddsLen {
-					user = auth[0]
-					pass = auth[1]
+			// Deal with cases where the address has no scheme.
+			if !validProxySchemesRegex.MatchString(address) {
+				switch strings.ToUpper(m) {
+				case mode.Socks5.String():
+					address = fmt.Sprintf("socks5://%s", address)
+				case mode.Socks.String():
+					address = fmt.Sprintf("socks://%s", address)
+				case mode.Proxy.String():
+					address = fmt.Sprintf("http://%s", address)
 				}
+			}
 
-				addr = addr[at+1:]
+			// Should be a valid URI.
+			if err := validation.Get().Var(address, "proxyURI"); err != nil {
+				return nil, customerror.NewFailedToError(errMsgPrefix+", invalid", "", err)
+			}
+
+			parsedProxyURI, err := url.ParseRequestURI(address)
+			if err != nil {
+				return nil, customerror.NewFailedToError(errMsgPrefix, "", err)
 			}
 
 			proxies = append(proxies, Proxy{
-				Type:     typ,
-				Address:  addr,
-				Username: user,
-				Password: pass,
+				address: address,
+				mode:    mode.Mode(m),
+
+				uri: parsedProxyURI,
 			})
-		} else if len(typeAddr) == 1 {
+		} else if len(modeAndAddress) == 1 { // DIRECT case.
 			proxies = append(proxies, Proxy{
-				Type: strings.ToUpper(typeAddr[0]),
+				mode: mode.Mode(strings.ToUpper(modeAndAddress[0])),
 			})
 		}
 	}
 
-	return proxies
+	return proxies, nil
 }

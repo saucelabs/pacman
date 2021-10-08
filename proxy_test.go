@@ -8,46 +8,42 @@ import (
 	"testing"
 
 	"github.com/saucelabs/pacman"
+	"github.com/saucelabs/pacman/pkg/mode"
 )
 
 func TestParseProxy(t *testing.T) {
-	proxy := "PROXY 127.0.0.1:8080; SOCKs 127.0.0.1:1080; Direct"
+	proxy := "PROXY 127.0.0.1:8080; SOCKS5 127.0.0.1:1080; SOCKS 127.0.0.1:1080; Direct"
 
-	proxies := pacman.ParseProxy(proxy)
-
-	if len(proxies) != 3 {
-		t.Error("Parse failed")
-		return
+	proxies, err := pacman.ParseProxy(proxy)
+	if err != nil {
+		t.Fatal("Parse failed", err)
 	}
 
-	if proxies[1].Type != "SOCKS" {
-		t.Error("Should be SOCKS5")
+	if len(proxies) != 4 {
+		t.Fatal("Expected 4 proxies")
 	}
 
-	if !proxies[1].IsSOCKS() {
-		t.Error("Should be SOCKS5")
+	if proxies[0].GetURI().String() != "http://127.0.0.1:8080" {
+		t.Fatalf("Expected %s to be http://127.0.0.1:8080", proxies[0].GetURI())
 	}
 
-	if !proxies[2].IsDirect() {
-		t.Error("Should be direct")
-	}
-}
-
-func TestParseSOCKS(t *testing.T) {
-	proxy := "SOCKS5 127.0.0.1:1080"
-
-	proxies := pacman.ParseProxy(proxy)
-
-	if len(proxies) != 1 {
-		t.Error("Parse failed")
-		return
+	if proxies[0].GetAddress() != "http://127.0.0.1:8080" {
+		t.Fatalf("Expected %s to be http://127.0.0.1:8080", proxies[0].GetAddress())
 	}
 
-	if !proxies[0].IsSOCKS() {
-		t.Error("Should be SOCKS5")
+	if proxies[1].GetMode() != mode.Socks5 {
+		t.Fatal("Should be SOCKS5")
 	}
 
-	if proxies[0].IsDirect() {
-		t.Error("Should be direct")
+	if proxies[2].GetMode() != mode.Socks {
+		t.Fatal("Should be SOCKS")
+	}
+
+	if proxies[3].GetMode() != mode.Direct {
+		t.Fatal("Should be direct")
+	}
+
+	if proxies[3].String() != "DIRECT" {
+		t.Fatalf("Expected String to be DIRECT, got %s", proxies[2].String())
 	}
 }

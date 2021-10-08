@@ -6,7 +6,6 @@
 // SOCKS protocol version 5 is defined in RFC 1928.
 // Username/Password authentication for SOCKS version 5 is defined in
 // RFC 1929.
-//
 
 package pacman
 
