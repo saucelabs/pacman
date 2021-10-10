@@ -211,7 +211,7 @@ func fromURL(uri string, proxiesURIs ...string) (*Parser, error) {
 			statusCode = http.StatusInternalServerError
 		}
 
-		errMsg := fmt.Sprintf("failed to retrieve PAC content from %s", uri)
+		errMsg := fmt.Sprintf("failed to retrieve PAC content from %s", u.Redacted())
 
 		resp.Body.Close()
 
