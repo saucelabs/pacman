@@ -7,9 +7,9 @@ package pacman_test
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -21,12 +21,22 @@ import (
 
 // Creates a mocked HTTP server. Any error will throw a fatal error. Don't
 // forget to defer close it.
-func createMockedHTTPServer(statusCode int, body string) *httptest.Server {
+func createMockedHTTPServer(statusCode int, body, encodedCredential string) *httptest.Server {
 	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		if encodedCredential != "" {
+			if !strings.Contains(req.Header.Get("Authorization"), encodedCredential) {
+				http.Error(res, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+
+				return
+			}
+		}
+
 		res.WriteHeader(statusCode)
 
 		if _, err := res.Write([]byte(body)); err != nil {
-			log.Fatalln("Failed to write body.", err)
+			http.Error(res, err.Error(), http.StatusForbidden)
+
+			return
 		}
 	}))
 
@@ -96,11 +106,18 @@ func TestParser_New_fromweb(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pacServer := createMockedHTTPServer(http.StatusOK, string(data))
+	pacServer := createMockedHTTPServer(http.StatusOK, string(data), "dXNlcjpwYXNz")
 
 	defer pacServer.Close()
 
-	pacFromWeb, err := pacman.New(pacServer.URL)
+	u, err := url.ParseRequestURI(pacServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	u.User = url.UserPassword("user", "pass")
+
+	pacFromWeb, err := pacman.New(u.String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +138,7 @@ func TestParser_New_fromweb_non2xx(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pacServer := createMockedHTTPServer(http.StatusNotFound, string(data))
+	pacServer := createMockedHTTPServer(http.StatusNotFound, string(data), "")
 
 	defer pacServer.Close()
 
@@ -132,7 +149,7 @@ func TestParser_New_fromweb_non2xx(t *testing.T) {
 }
 
 func TestParser_New_fromweb_noBody(t *testing.T) {
-	pacServer := createMockedHTTPServer(http.StatusOK, "")
+	pacServer := createMockedHTTPServer(http.StatusOK, "", "")
 
 	defer pacServer.Close()
 
@@ -148,7 +165,7 @@ func TestParser_New_fromweb_noBody(t *testing.T) {
 }
 
 func TestParser_New_fromweb_invalidBody(t *testing.T) {
-	pacServer := createMockedHTTPServer(http.StatusOK, "invalid content")
+	pacServer := createMockedHTTPServer(http.StatusOK, "invalid content", "")
 
 	defer pacServer.Close()
 

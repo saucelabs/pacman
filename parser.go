@@ -175,15 +175,25 @@ func fromFile(filename string, proxiesURIs ...string) (*Parser, error) {
 	return fromReader(filename, f, proxiesURIs...)
 }
 
-// Remote loader. Optionally, receives a list of proxies URIs which will be
-// used to map each proxy to its credential.
+// Remote loader (http/https). Optionally, receives a list of proxies URIs which
+// will be used to map each proxy to its credential.
 func fromURL(uri string, proxiesURIs ...string) (*Parser, error) {
+	u, err := url.ParseRequestURI(uri)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), defaultRequestTimeout*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, uri, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if u.User != nil {
+		password, _ := u.User.Password()
+		req.SetBasicAuth(u.User.Username(), password)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
