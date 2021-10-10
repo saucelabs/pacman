@@ -115,7 +115,10 @@ func TestParser_New_fromweb(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	u.User = url.UserPassword("user", "pass")
+	u.User = url.UserPassword("user1", "pass1")
+
+	os.Setenv("PACMAN_CREDENTIAL", "user:pass")
+	defer os.Unsetenv("PACMAN_CREDENTIAL")
 
 	pacFromWeb, err := pacman.New(u.String())
 	if err != nil {
@@ -278,7 +281,10 @@ func TestParser_New_withProxyCredentials(t *testing.T) {
 	os.Setenv("PACMAN_LOG_LEVEL", "debug")
 	defer os.Unsetenv("PACMAN_LOG_LEVEL")
 
-	pacFromFile, err := pacman.New("resources/data.pac", "http://user:pass@4.5.6.7:8080")
+	os.Setenv("PACMAN_PROXIES_CREDENTIAL", "http://user:pass@4.5.6.7:8080")
+	defer os.Unsetenv("PACMAN_PROXIES_CREDENTIAL")
+
+	pacFromFile, err := pacman.New("resources/data.pac", "http://user1:pass1@4.5.6.7:8080")
 	if err != nil {
 		t.Fatal(err)
 	}

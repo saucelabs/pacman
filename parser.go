@@ -36,6 +36,27 @@ var l *sypl.Sypl
 // Helpers.
 //////
 
+// Loads, validate credential from env var, and set URI's user.
+func setCredentialFromEnvVar(envVar string, uri *url.URL, req *http.Request) error {
+	credentialFromEnvVar := os.Getenv(envVar)
+
+	if credentialFromEnvVar != "" {
+		if err := validation.Get().Var(credentialFromEnvVar, "basicAuth"); err != nil {
+			errMsg := fmt.Sprintf("env var (%s)", envVar)
+
+			return customerror.NewInvalidError(errMsg, "", err)
+		}
+
+		cred := strings.Split(credentialFromEnvVar, ":")
+
+		uri.User = url.UserPassword(cred[0], cred[1])
+
+		req.SetBasicAuth(cred[0], cred[1])
+	}
+
+	return nil
+}
+
 func registerBuiltinNatives(vm *goja.Runtime) error {
 	for name, function := range builtinNatives {
 		if err := vm.Set(name, function(vm)); err != nil {
@@ -125,6 +146,15 @@ func initialize(source, content string, proxiesURIs ...string) (*Parser, error) 
 	// Associates a proxy - specified in PAC, with its credential - if any.
 	var proxiesCredentials ProxiesCredentials
 
+	proxiesURIsEnvVar := os.Getenv("PACMAN_PROXIES_CREDENTIAL")
+	if proxiesURIsEnvVar != "" {
+		proxiesURIsFromEnvVar := strings.Split(proxiesURIsEnvVar, ",")
+
+		if len(proxiesURIsFromEnvVar) > 0 {
+			proxiesURIs = proxiesURIsFromEnvVar
+		}
+	}
+
 	if proxiesURIs != nil {
 		pC, err := processProxiesCredentials(proxiesURIs...)
 		if err != nil {
@@ -192,8 +222,17 @@ func fromURL(uri string, proxiesURIs ...string) (*Parser, error) {
 	}
 
 	if u.User != nil {
+		if err := validation.Get().Var(u.User.String(), "basicAuth"); err != nil {
+			return nil, customerror.NewInvalidError("PAC URI credential", "", err)
+		}
+
 		password, _ := u.User.Password()
+
 		req.SetBasicAuth(u.User.Username(), password)
+	}
+
+	if err := setCredentialFromEnvVar("PACMAN_CREDENTIAL", u, req); err != nil {
+		return nil, err
 	}
 
 	resp, err := http.DefaultClient.Do(req)

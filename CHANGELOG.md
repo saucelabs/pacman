@@ -11,7 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Conform tests (format/style) with Goland standard
 - Move generated SOCKS (`socks.go`) client to internal
 
-## [0.0.6] - 2021-10-10
+## [0.0.8] - 2021-10-10
+
+- [x] Added ability to specify credentials (PAC URI, PAC proxies URI) via env var.
+
+## [0.0.7] - 2021-10-09
+
+- [x] Prints redact URI instead of plain one.
+
+## [0.0.6] - 2021-10-09
 
 - [x] Added the ability to request PAC content from a protected remote (HTTP/HTTPS) server.
 
