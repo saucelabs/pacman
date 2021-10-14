@@ -278,8 +278,9 @@ func TestParser_New_invalidTextOrURI(t *testing.T) {
 }
 
 func TestParser_New_withProxyCredentials(t *testing.T) {
-	os.Setenv("PACMAN_LOG_LEVEL", "debug")
-	defer os.Unsetenv("PACMAN_LOG_LEVEL")
+	// Use sypl
+	os.Setenv("SYPL_DEBUG", "pacman:console:debug")
+	defer os.Unsetenv("SYPL_DEBUG")
 
 	os.Setenv("PACMAN_PROXIES_CREDENTIAL", "http://user:pass@4.5.6.7:8080")
 	defer os.Unsetenv("PACMAN_PROXIES_CREDENTIAL")
