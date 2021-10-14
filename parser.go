@@ -375,13 +375,7 @@ func (p *Parser) FindProxy(uri string) ([]Proxy, error) {
 //   - `credential` is `username:password`, and is optional
 //   - `host` is `hostname:port`, and is optional.
 func New(textOrURI string, proxiesURIs ...string) (*Parser, error) {
-	l = sypl.NewDefault("pacman", level.Info).New("parser")
-
-	logLevelEnvVar := os.Getenv("PACMAN_LOG_LEVEL")
-
-	if logLevelEnvVar != "" {
-		l.GetOutput("console").SetMaxLevel(level.MustFromString(logLevelEnvVar))
-	}
+	l = sypl.NewDefault("pacman", level.Info)
 
 	if err := validation.Get().Var(textOrURI, "pacTextOrURI"); err != nil {
 		return nil, customerror.NewInvalidError("params", "", err)

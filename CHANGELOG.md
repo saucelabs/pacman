@@ -9,44 +9,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use Otto instead of Goja
 - Conform tests (format/style) with Goland standard
-- Move generated SOCKS (`socks.go`) client to internal
+
+## [0.0.9] - 2021-10-13
+
+### Changed
+
+- Upgraded dependencies, removed `PACMAN_LOG_LEVEL`. Sypl supports logging filtering, and max level fine-control.
 
 ## [0.0.8] - 2021-10-10
 
-- [x] Added ability to specify credentials (PAC URI, PAC proxies URI) via env var.
+### Added
+
+- Added ability to specify credentials (PAC URI, PAC proxies URI) via env var.
 
 ## [0.0.7] - 2021-10-09
 
-- [x] Prints redact URI instead of plain one.
+### Added
+
+- Prints redacted URI instead of plain one.
 
 ## [0.0.6] - 2021-10-09
 
-- [x] Added the ability to request PAC content from a protected remote (HTTP/HTTPS) server.
+### Added
+
+- Added the ability to request PAC content from a protected remote (HTTP/HTTPS) server.
 
 ## [0.0.5] - 2021-10-08
 
-- [x] Added Sypl.
-  - [x] `PACMAN_LOG_LEVEL` env var controls the logging level.
-- [x] Added `GetXYZ` accessors for private fields.
-- [x] Added the ability to set credentials for PAC proxies.
-- [x] Improved documentation.
-- [x] Added more tests, and covered more cases.
-- [x] Added more validation, and validators.
-- [x] Fixed some of the naming inconsistencies.
-- [x] Now the type of the PAC proxy is an enum (`mode`).
-- [x] Improved some of the matching algol using pre-compiled (optmized) regex.
-- [x] Started breaking down code into packages (`internal`, `pkg`).
+### Added
+
+- Added Sypl.
+  - `PACMAN_LOG_LEVEL` env var controls the logging level.
+- Added `GetXYZ` accessors for private fields.
+- Added the ability to set credentials for PAC proxies.
+- Added more tests, and covered more cases.
+- Added more validation, and validators.
+
+### Changed
+
+- Started breaking down code into packages (`internal`, `pkg`).
+- Now the type of the PAC proxy is an enum (`mode`).
+- Improved some of the matching algol using pre-compiled (optmized) regex.
+- Fixed some of the naming inconsistencies.
+- Improved documentation.
 
 ## [0.0.4] - 2021-10-07
 
-- [x] Refresh registry.
+- Refresh registry.
 
 ## [0.0.3] - 2021-10-07
-
 ### Added
 
-- [x] `parser.Source` now returns the source of the PAC content.
-- [x] Added more tests.
+- `parser.Source` now returns the source of the PAC content.
+- Added more tests.
 
 ### Changed
 
@@ -56,17 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- [x] Universal loader (text, file, remote).
-- [x] `parser.Source` returns the loaded PAC content.
+- Universal loader (text, file, remote).
+- `parser.Source` returns the loaded PAC content.
 
 ## [0.0.1] - 2021-10-06
 
-### Added/Removed/Changed
-
-- [x] Removed anything non-PAC parsing related.
-- [x] Modernized code.
-- [x] Made it work properly/fixed bugs/bad code.
-- [x] Fixed/added more tests.
+First release.
 
 ### Checklist
 
