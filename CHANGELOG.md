@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Use Otto instead of Goja
 - Conform tests (format/style) with Golang standard
+- Get accessors for PACman information
+
+## [0.0.10] - 2021-10-27
+### Added
+- Added ability to handle `localhost` pac proxy URI synonyms (`127.0.0.1`, and `0.0.0.0`).
 
 ## [0.0.9] - 2021-10-13
 ### Changed

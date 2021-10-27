@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -28,13 +29,26 @@ import (
 
 const defaultRequestTimeout = 3
 
-type ProxiesCredentials map[string]*credential.BasicAuth
-
 var l *sypl.Sypl
+
+// Localhost regex. Based on Golang `net.Listen` and `net.LookupStaticHost` tests.
+var localhostRegex = regexp.MustCompile(`(?mi)0\.0\.0\.0|127\.0\.0\.1|localhost`)
+
+type ProxiesCredentials map[string]*credential.BasicAuth
 
 //////
 // Helpers.
 //////
+
+// Checks if the given URI is "localhost".
+func IsLocalhost(uri *url.URL) bool {
+	return localhostRegex.MatchString(uri.Host)
+}
+
+// Compares if two given URIs are "localhost".
+func EqualLocalhost(uri1, uri2 *url.URL) bool {
+	return IsLocalhost(uri1) && IsLocalhost(uri2)
+}
 
 // Loads, validate credential from env var, and set URI's user.
 func setCredentialFromEnvVar(envVar string, uri *url.URL, req *http.Request) error {
@@ -337,11 +351,37 @@ func (p *Parser) FindProxy(uri string) ([]Proxy, error) {
 
 	// Adds credential - if any.
 	//
-	// TODO: Move it to `ParseProxy`.
+	// TODO: May be move it to `ParseProxy`.
 	for _, parsedProxy := range parsedProxies {
-		if parsedProxy.GetURI() != nil {
-			if credential, ok := p.proxiesCredentials[parsedProxy.GetURI().Host]; ok {
-				parsedProxy.uri.User = url.UserPassword(credential.Username, credential.Password)
+		parsedProxyURI := parsedProxy.GetURI()
+
+		if parsedProxyURI != nil {
+			cred, ok := p.proxiesCredentials[parsedProxyURI.Host]
+			if ok {
+				parsedProxy.uri.User = url.UserPassword(cred.Username, cred.Password)
+			} else {
+				// NOTE: It deals with localhost synonyms (`127.0.0.1`, and `0.0.0.0`).
+				parsedProxyURIPort := parsedProxyURI.Port()
+
+				if IsLocalhost(parsedProxyURI) {
+					var lCred *credential.BasicAuth
+
+					if cred, ok := p.proxiesCredentials[fmt.Sprintf("127.0.0.1:%s", parsedProxyURIPort)]; ok {
+						lCred = cred
+					}
+
+					if cred, ok := p.proxiesCredentials[fmt.Sprintf("localhost:%s", parsedProxyURIPort)]; lCred == nil && ok {
+						lCred = cred
+					}
+
+					if cred, ok := p.proxiesCredentials[fmt.Sprintf("0.0.0.0:%s", parsedProxyURIPort)]; lCred == nil && ok {
+						lCred = cred
+					}
+
+					if lCred != nil {
+						parsedProxy.uri.User = url.UserPassword(lCred.Username, lCred.Password)
+					}
+				}
 			}
 		}
 

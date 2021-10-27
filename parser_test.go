@@ -19,6 +19,10 @@ import (
 	"github.com/saucelabs/pacman/pkg/mode"
 )
 
+//////
+// Helpers
+//////
+
 // Creates a mocked HTTP server. Any error will throw a fatal error. Don't
 // forget to defer close it.
 func createMockedHTTPServer(statusCode int, body, encodedCredential string) *httptest.Server {
@@ -81,6 +85,131 @@ func findProxy(t *testing.T, pac *pacman.Parser) {
 		if p.String() != proxyPrefixedWithProxy {
 			t.Errorf("expected %s to be prefixed with PROXY, got %s", p.String(), proxyPrefixedWithProxy)
 		}
+	}
+}
+
+//////
+// Test cases
+//////
+
+func TestIsLocalhost(t *testing.T) {
+	type args struct {
+		uri *url.URL
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Should work - 127.0.0.1",
+			args: args{
+				uri: &url.URL{
+					Scheme: "http",
+					Host:   "127.0.0.1:8080",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Should work - localhost",
+			args: args{
+				uri: &url.URL{
+					Scheme: "http",
+					Host:   "localhost:8080",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Should work - 0.0.0.0",
+			args: args{
+				uri: &url.URL{
+					Scheme: "http",
+					Host:   "0.0.0.0:8080",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Should fail - non-localhost",
+			args: args{
+				uri: &url.URL{
+					Scheme: "http",
+					Host:   "10.0.1.0:8080",
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := pacman.IsLocalhost(tt.args.uri); got != tt.want {
+				t.Fatalf("Expected %v got %v", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestEqualLocalhost(t *testing.T) {
+	type args struct {
+		uri1 *url.URL
+		uri2 *url.URL
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "Should work - 127.0.0.1:8080, and localhost:8080",
+			args: args{
+				uri1: &url.URL{
+					Scheme: "http",
+					Host:   "127.0.0.1:8080",
+				},
+				uri2: &url.URL{
+					Scheme: "http",
+					Host:   "localhost:8080",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Should work - 0.0.0.0:8080, and localhost:8080",
+			args: args{
+				uri1: &url.URL{
+					Scheme: "http",
+					Host:   "0.0.0.0:8080",
+				},
+				uri2: &url.URL{
+					Scheme: "http",
+					Host:   "localhost:8080",
+				},
+			},
+			want: true,
+		},
+		{
+			name: "Should work - 127.0.0.1:8080, and 0.0.0.0:8080",
+			args: args{
+				uri1: &url.URL{
+					Scheme: "http",
+					Host:   "127.0.0.1:8080",
+				},
+				uri2: &url.URL{
+					Scheme: "http",
+					Host:   "0.0.0.0:8080",
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := pacman.EqualLocalhost(tt.args.uri1, tt.args.uri2); got != tt.want {
+				t.Errorf("EqualLocalhost() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
@@ -301,6 +430,22 @@ func TestParser_New_withProxyCredentials(t *testing.T) {
 	}
 }
 
+// FindProxyForURL example.
+func Example_findProxyForURL() {
+	pacf, _ := os.Open("resources/data.pac")
+	defer pacf.Close()
+
+	data, _ := ioutil.ReadAll(pacf)
+	pac, _ := pacman.New(string(data))
+
+	r, _ := pac.FindProxyForURL("http://www.example.com/")
+
+	fmt.Println(r)
+
+	// Output:
+	// PROXY http://4.5.6.7:8080; PROXY https://4.5.6.7:8081; PROXY socks://4.5.6.7:8082; PROXY socks5://4.5.6.7:8083; PROXY quic://4.5.6.7:8084; PROXY 4.5.6.7:8085
+}
+
 func BenchmarkFind(b *testing.B) {
 	pacf, _ := os.Open("resources/data.pac")
 	defer pacf.Close()
@@ -315,17 +460,94 @@ func BenchmarkFind(b *testing.B) {
 	}
 }
 
-func Example() {
-	pacf, _ := os.Open("resources/data.pac")
-	defer pacf.Close()
+func TestParser_FindProxy(t *testing.T) {
+	type args struct {
+		pacSource   string
+		pacProxyURI *url.URL
+	}
+	tests := []struct {
+		name           string
+		args           args
+		uriToFindProxy *url.URL
+		want           bool
+	}{
+		{
+			name: "Should work - 127.0.0.1:8085",
+			args: args{
+				pacSource: "resources/customdata.pac",
+				pacProxyURI: &url.URL{
+					Scheme: "http",
+					Host:   "127.0.0.1:8085",
+					User:   url.UserPassword("u123", "p123"),
+				},
+			},
+			uriToFindProxy: &url.URL{
+				Scheme: "http",
+				Host:   "www.example.com",
+			},
+			want: true,
+		},
+		{
+			name: "Should work - 0.0.0.0:8085",
+			args: args{
+				pacSource: "resources/customdata.pac",
+				pacProxyURI: &url.URL{
+					Scheme: "http",
+					Host:   "0.0.0.0:8085",
+					User:   url.UserPassword("u234", "p234"),
+				},
+			},
+			uriToFindProxy: &url.URL{
+				Scheme: "http",
+				Host:   "www.example.com",
+			},
+			want: true,
+		},
+		{
+			name: "Should work - localhost:8085",
+			args: args{
+				pacSource: "resources/customdata.pac",
+				pacProxyURI: &url.URL{
+					Scheme: "http",
+					Host:   "localhost:8085",
+					User:   url.UserPassword("u456", "p456"),
+				},
+			},
+			uriToFindProxy: &url.URL{
+				Scheme: "http",
+				Host:   "www.example.com",
+			},
+			want: true,
+		},
+		{
+			name: "Should work - example:8085",
+			args: args{
+				pacSource: "resources/customdata.pac",
+				pacProxyURI: &url.URL{
+					Scheme: "http",
+					Host:   "example:8085",
+					User:   url.UserPassword("u567", "p567"),
+				},
+			},
+			uriToFindProxy: &url.URL{
+				Scheme: "http",
+				Host:   "www.example.com",
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pac, _ := pacman.New(tt.args.pacSource, tt.args.pacProxyURI.String())
 
-	data, _ := ioutil.ReadAll(pacf)
-	pac, _ := pacman.New(string(data))
+			r, _ := pac.FindProxy(tt.uriToFindProxy.String())
 
-	r, _ := pac.FindProxyForURL("http://www.example.com/")
-
-	fmt.Println(r)
-
-	// Output:
-	// PROXY http://4.5.6.7:8080; PROXY https://4.5.6.7:8081; PROXY socks://4.5.6.7:8082; PROXY socks5://4.5.6.7:8083; PROXY quic://4.5.6.7:8084; PROXY 4.5.6.7:8085
+			if tt.want && r[0].GetURI().User.Username() != tt.args.pacProxyURI.User.Username() {
+				t.Fatalf("FindProxy expected %v, got %v",
+					tt.args.pacProxyURI.User.Username(),
+					r[0].GetURI().User.Username(),
+				)
+			}
+		})
+	}
 }

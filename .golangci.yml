@@ -28,7 +28,10 @@ linters-settings:
     statements: 45
 
   nestif:
-    min-complexity: 8
+    min-complexity: 25
+
+  gocognit:
+    min-complexity: 50
 
 issues:
   exclude-rules:
