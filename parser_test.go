@@ -406,6 +406,7 @@ func TestParser_New_invalidTextOrURI(t *testing.T) {
 	}
 }
 
+//nolint:gosec
 func TestParser_New_withProxyCredentials(t *testing.T) {
 	// Use sypl
 	os.Setenv("SYPL_DEBUG", "pacman:console:debug")

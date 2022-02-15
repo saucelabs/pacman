@@ -20,6 +20,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/saucelabs/customerror"
 	"github.com/saucelabs/pacman/internal/credential"
+	"github.com/saucelabs/pacman/internal/utils"
 	"github.com/saucelabs/pacman/internal/validation"
 	"github.com/saucelabs/sypl"
 	"github.com/saucelabs/sypl/fields"
@@ -210,8 +211,19 @@ func fromReader(source string, r io.ReadCloser, proxiesURIs ...string) (*Parser,
 
 // File loader. Optionally, receives a list of proxies URIs which will be
 // used to map each proxy to its credential.
+//
+// NOTE:
+// - Absolute, and relative paths are supported.
+// - `file://` scheme is supported. IT SHOULD BE AN ABSOLUTE PATH:
+//   - SEE: https://datatracker.ietf.org/doc/html/rfc1738#section-3.10
+//   - SEE: https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-file-scheme-03#section-2
 func fromFile(filename string, proxiesURIs ...string) (*Parser, error) {
-	f, err := os.Open(filename)
+	resolvedFilename, err := utils.FilenameResolver(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.Open(resolvedFilename)
 	if err != nil {
 		return nil, err
 	}
@@ -405,7 +417,9 @@ func (p *Parser) FindProxy(uri string) ([]Proxy, error) {
 // - File: `textOrURI` points to a file:
 //   - As per PAC spec, PAC file should have the `.pac` extension
 //   - Absolute and relative paths are supported
-//   - `file://` scheme is supported. It should be an absolute path.
+//   - `file://` scheme is supported. IT SHOULD BE AN ABSOLUTE PATH:
+//     - SEE: https://datatracker.ietf.org/doc/html/rfc1738#section-3.10
+//     - SEE: https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-file-scheme-03#section-2
 //
 // Notes:
 // - Optionally, credentials for each/any proxy specified in the PAC content can
@@ -427,11 +441,11 @@ func New(textOrURI string, proxiesURIs ...string) (*Parser, error) {
 		return fromURL(textOrURI, proxiesURIs...)
 	}
 
-	// File loading.
-	if strings.Contains(textOrURI, ".pac") {
-		return fromFile(textOrURI, proxiesURIs...)
+	// Directly loading.
+	if strings.Contains(textOrURI, "FindProxyForURL") {
+		return fromText(textOrURI, proxiesURIs...)
 	}
 
-	// Directly loading.
-	return fromText(textOrURI, proxiesURIs...)
+	// File loading.
+	return fromFile(textOrURI, proxiesURIs...)
 }
