@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Conform tests (format/style) with Golang standard
 - Get accessors for PACman information
 
+## [0.0.13] - 2022-02-22
+### Changed
+- Updated dependencies
+
 ## [0.0.11] - 2022-02-14
-
 ### Added
-
 - Added ability to handle PAC filepath with or without URI, *nix or Windows, local or remote.
 - Upgrade golang-ci version (CI pipeline)
 - standardized Go version to 1.16

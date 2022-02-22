@@ -59,7 +59,7 @@ func setCredentialFromEnvVar(envVar string, uri *url.URL, req *http.Request) err
 		if err := validation.Get().Var(credentialFromEnvVar, "basicAuth"); err != nil {
 			errMsg := fmt.Sprintf("env var (%s)", envVar)
 
-			return customerror.NewInvalidError(errMsg, "", err)
+			return customerror.NewInvalidError(errMsg, customerror.WithError(err))
 		}
 
 		cred := strings.Split(credentialFromEnvVar, ":")
@@ -102,22 +102,21 @@ func processProxiesCredentials(proxiesURIs ...string) (ProxiesCredentials, error
 	for _, proxyURI := range proxiesURIs {
 		// Should be a valid proxy URI.
 		if err := validation.Get().Var(proxyURI, "proxyURI"); err != nil {
-			return nil, customerror.NewInvalidError("PAC proxy URI", "", err)
+			return nil, customerror.NewInvalidError("PAC proxy URI", customerror.WithError(err))
 		}
 
 		parsedProxyURI, err := url.ParseRequestURI(proxyURI)
 		if err != nil {
 			return nil, customerror.New(
 				"Failed to parse PAC proxy URI",
-				"",
-				http.StatusBadRequest,
-				err,
+				customerror.WithStatusCode(http.StatusBadRequest),
+				customerror.WithError(err),
 			)
 		}
 
 		// Should be a valid credential.
 		if err := validation.Get().Var(parsedProxyURI.User.String(), "basicAuth"); err != nil {
-			return nil, customerror.NewInvalidError("PAC proxy URI", "", err)
+			return nil, customerror.NewInvalidError("PAC proxy URI", customerror.WithError(err))
 		}
 
 		c, err := credential.NewBasicAuthFromText(parsedProxyURI.User.String())
@@ -135,7 +134,7 @@ func processProxiesCredentials(proxiesURIs ...string) (ProxiesCredentials, error
 // Initializes Goja, parse PAC content, and process proxies credentials.
 func initialize(source, content string, proxiesURIs ...string) (*Parser, error) {
 	if err := validation.Get().Var(content, "pacTextOrURI"); err != nil {
-		return nil, customerror.NewInvalidError("params", "", err)
+		return nil, customerror.NewInvalidError("params", customerror.WithError(err))
 	}
 
 	vm := goja.New()
@@ -249,7 +248,7 @@ func fromURL(uri string, proxiesURIs ...string) (*Parser, error) {
 
 	if u.User != nil {
 		if err := validation.Get().Var(u.User.String(), "basicAuth"); err != nil {
-			return nil, customerror.NewInvalidError("PAC URI credential", "", err)
+			return nil, customerror.NewInvalidError("PAC URI credential", customerror.WithError(err))
 		}
 
 		password, _ := u.User.Password()
@@ -280,7 +279,7 @@ func fromURL(uri string, proxiesURIs ...string) (*Parser, error) {
 
 		resp.Body.Close()
 
-		return nil, customerror.New(errMsg, "", statusCode, err)
+		return nil, customerror.New(errMsg, customerror.WithStatusCode(statusCode), customerror.WithError(err))
 	}
 
 	// Should only read body if request succeeded.
@@ -337,8 +336,7 @@ func (p *Parser) FindProxyForURL(uri string) (string, error) {
 	if err != nil {
 		return "", customerror.NewFailedToError(
 			"call `FindProxyForURL`. Is that defined?",
-			"",
-			err,
+			customerror.WithError(err),
 		)
 	}
 
@@ -432,7 +430,7 @@ func New(textOrURI string, proxiesURIs ...string) (*Parser, error) {
 	l = sypl.NewDefault("pacman", level.Info)
 
 	if err := validation.Get().Var(textOrURI, "pacTextOrURI"); err != nil {
-		return nil, customerror.NewInvalidError("params", "", err)
+		return nil, customerror.NewInvalidError("params", customerror.WithError(err))
 	}
 
 	// Remote loading.

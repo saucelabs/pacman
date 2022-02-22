@@ -17,8 +17,8 @@ import (
 var (
 	redactorRegex = regexp.MustCompile(`(?mi).`)
 
-	ErrMissingCredential        = customerror.NewMissingError("credential", "", nil)
-	ErrUsernamePasswordRequired = customerror.NewRequiredError("username, and password are", "", nil)
+	ErrMissingCredential        = customerror.NewMissingError("credential")
+	ErrUsernamePasswordRequired = customerror.NewRequiredError("username, and password are")
 )
 
 // BasicAuth is the basic authentication credential definition.
@@ -52,7 +52,7 @@ func (bC BasicAuth) String() string {
 // `credential` from text.
 func NewBasicAuthFromText(cred string) (*BasicAuth, error) {
 	if err := validation.Get().Var(cred, "basicAuth"); err != nil {
-		return nil, customerror.NewInvalidError("credential", "", err)
+		return nil, customerror.NewInvalidError("credential", customerror.WithError(err))
 	}
 
 	c := strings.Split(cred, ":")
@@ -68,7 +68,7 @@ func NewBasicAuth(username, password string) (*BasicAuth, error) {
 	}
 
 	if err := validation.Get().Var(bC.String(), "basicAuth"); err != nil {
-		return nil, customerror.NewInvalidError("credential", "", err)
+		return nil, customerror.NewInvalidError("credential", customerror.WithError(err))
 	}
 
 	return bC, nil

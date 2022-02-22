@@ -92,7 +92,7 @@ func ParseProxy(pstr string) ([]Proxy, error) {
 			address := modeAndAddress[1]
 
 			if address == "" {
-				return nil, customerror.NewInvalidError(errMsgPrefix+", empty", "", nil)
+				return nil, customerror.NewInvalidError(errMsgPrefix + ", empty")
 			}
 
 			// Deal with cases where the address has no scheme.
@@ -109,12 +109,12 @@ func ParseProxy(pstr string) ([]Proxy, error) {
 
 			// Should be a valid URI.
 			if err := validation.Get().Var(address, "proxyURI"); err != nil {
-				return nil, customerror.NewFailedToError(errMsgPrefix+", invalid", "", err)
+				return nil, customerror.NewFailedToError(errMsgPrefix+", invalid", customerror.WithError(err))
 			}
 
 			parsedProxyURI, err := url.ParseRequestURI(address)
 			if err != nil {
-				return nil, customerror.NewFailedToError(errMsgPrefix, "", err)
+				return nil, customerror.NewFailedToError(errMsgPrefix, customerror.WithError(err))
 			}
 
 			proxies = append(proxies, Proxy{
