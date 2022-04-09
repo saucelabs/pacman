@@ -16,10 +16,10 @@ go get github.com/saucelabs/pacman
 package main
 
 import (
- "fmt"
- "log"
+	"fmt"
+	"log"
 
- "github.com/saucelabs/pacman"
+	"github.com/saucelabs/pacman"
 )
 
 // Example of PAC.
@@ -31,24 +31,26 @@ var scripts = `
 `
 
 func main() {
- 	pac, err := pacman.New(scripts)
+	url := "http://www.example.com/"
+	pac, err := pacman.New(scripts)
 	if err != nil {
-		log.Fatall(err)
+		log.Fatal(err)
 	}
 
- 	r, err := pac.FindProxyForURL("http://www.example.com/")
-	 if err != nil {
-		log.Fatall(err)
+	r, err := pac.FindProxyForURL(url) // returns PROXY 127.0.0.1:8080; PROXY 127.0.0.1:8081; DIRECT
+	if err != nil {
+		log.Fatal(err)
 	}
 
- 	fmt.Println(r) // returns PROXY 127.0.0.1:8080; PROXY 127.0.0.1:8081; DIRECT
-
- 	// Get issues request via a list of proxies and returns at the first request that succeeds
- 	resp, err := pac.Get("http://www.example.com/")
-	 if err != nil {
-		log.Fatall(err)
+	proxies, err := pacman.ParseProxy(r)
+	if err != nil {
+		log.Fatal(err)
 	}
 
- 	fmt.Println(resp.Status)
+	fmt.Printf("Found proxies for %s:\n", url)
+
+	for _, proxy := range proxies {
+		fmt.Println(proxy.String())
+	}
 }
 ```
