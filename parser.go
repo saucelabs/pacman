@@ -160,7 +160,7 @@ func initialize(source, content string, proxiesURIs ...string) (*Parser, error) 
 	// Associates a proxy - specified in PAC, with its credential - if any.
 	var proxiesCredentials ProxiesCredentials
 
-	proxiesURIsEnvVar := os.Getenv("PACMAN_PROXIES_CREDENTIAL")
+	proxiesURIsEnvVar := os.Getenv("PACMAN_PROXIES_AUTH")
 	if proxiesURIsEnvVar != "" {
 		proxiesURIsFromEnvVar := strings.Split(proxiesURIsEnvVar, ",")
 
