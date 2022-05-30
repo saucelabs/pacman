@@ -246,8 +246,8 @@ func TestParser_New_fromweb(t *testing.T) {
 
 	u.User = url.UserPassword("user1", "pass1")
 
-	os.Setenv("PACMAN_CREDENTIAL", "user:pass")
-	defer os.Unsetenv("PACMAN_CREDENTIAL")
+	os.Setenv("PACMAN_AUTH", "user:pass")
+	defer os.Unsetenv("PACMAN_AUTH")
 
 	pacFromWeb, err := pacman.New(u.String())
 	if err != nil {

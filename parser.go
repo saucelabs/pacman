@@ -256,7 +256,7 @@ func fromURL(uri string, proxiesURIs ...string) (*Parser, error) {
 		req.SetBasicAuth(u.User.Username(), password)
 	}
 
-	if err := setCredentialFromEnvVar("PACMAN_CREDENTIAL", u, req); err != nil {
+	if err := setCredentialFromEnvVar("PACMAN_AUTH", u, req); err != nil {
 		return nil, err
 	}
 
