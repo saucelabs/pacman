@@ -412,8 +412,8 @@ func TestParser_New_withProxyCredentials(t *testing.T) {
 	os.Setenv("SYPL_DEBUG", "pacman:console:debug")
 	defer os.Unsetenv("SYPL_DEBUG")
 
-	os.Setenv("PACMAN_PROXIES_CREDENTIAL", "http://user:pass@4.5.6.7:8080")
-	defer os.Unsetenv("PACMAN_PROXIES_CREDENTIAL")
+	os.Setenv("PACMAN_PROXIES_AUTH", "http://user:pass@4.5.6.7:8080")
+	defer os.Unsetenv("PACMAN_PROXIES_AUTH")
 
 	pacFromFile, err := pacman.New("resources/data.pac", "http://user1:pass1@4.5.6.7:8080")
 	if err != nil {
