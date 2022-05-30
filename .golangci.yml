@@ -14,6 +14,7 @@ linters:
     - testpackage
     - gochecknoglobals
     - exhaustivestruct
+    - exhaustruct
     - paralleltest
     - godox
     - cyclop
