@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Conform tests (format/style) with Golang standard
 - Get accessors for PACman information
 
+## [0.1.0] - 2022-05-30
+### Changed
+- Renamed PACMAN_CREDENTIAL to PACMAN_AUTH env var
+- Updated dependencies
+- Upgraded golang-ci version (CI pipeline)
+
 ## [0.0.13] - 2022-02-22
 ### Changed
 - Updated dependencies
