@@ -6,7 +6,7 @@ package pacman_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -230,7 +230,7 @@ func TestParser_New_fromweb(t *testing.T) {
 
 	defer pacData.Close()
 
-	data, err := ioutil.ReadAll(pacData)
+	data, err := io.ReadAll(pacData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +265,7 @@ func TestParser_New_fromweb_non2xx(t *testing.T) {
 
 	defer pacData.Close()
 
-	data, err := ioutil.ReadAll(pacData)
+	data, err := io.ReadAll(pacData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +320,7 @@ func TestParser_New_text(t *testing.T) {
 
 	defer pacData.Close()
 
-	data, err := ioutil.ReadAll(pacData)
+	data, err := io.ReadAll(pacData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -432,11 +432,13 @@ func TestParser_New_withProxyCredentials(t *testing.T) {
 }
 
 // FindProxyForURL example.
+//
+//nolint:nosnakecase
 func Example_findProxyForURL() {
 	pacf, _ := os.Open("resources/data.pac")
 	defer pacf.Close()
 
-	data, _ := ioutil.ReadAll(pacf)
+	data, _ := io.ReadAll(pacf)
 	pac, _ := pacman.New(string(data))
 
 	r, _ := pac.FindProxyForURL("http://www.example.com/")
@@ -451,7 +453,7 @@ func BenchmarkFind(b *testing.B) {
 	pacf, _ := os.Open("resources/data.pac")
 	defer pacf.Close()
 
-	data, _ := ioutil.ReadAll(pacf)
+	data, _ := io.ReadAll(pacf)
 	pac, _ := pacman.New(string(data))
 
 	for n := 0; n < b.N; n++ {

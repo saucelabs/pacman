@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -200,7 +199,7 @@ func initialize(source, content string, proxiesURIs ...string) (*Parser, error) 
 func fromReader(source string, r io.ReadCloser, proxiesURIs ...string) (*Parser, error) {
 	defer r.Close()
 
-	buf, err := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +288,7 @@ func fromURL(uri string, proxiesURIs ...string) (*Parser, error) {
 // Direct text loader. Optionally, receives a list of proxies URIs which will be
 // used to map each proxy to its credential.
 func fromText(text string, proxiesURIs ...string) (*Parser, error) {
-	return fromReader("text", ioutil.NopCloser(strings.NewReader(text)), proxiesURIs...)
+	return fromReader("text", io.NopCloser(strings.NewReader(text)), proxiesURIs...)
 }
 
 //////
@@ -416,14 +415,14 @@ func (p *Parser) FindProxy(uri string) ([]Proxy, error) {
 //   - As per PAC spec, PAC file should have the `.pac` extension
 //   - Absolute and relative paths are supported
 //   - `file://` scheme is supported. IT SHOULD BE AN ABSOLUTE PATH:
-//     - SEE: https://datatracker.ietf.org/doc/html/rfc1738#section-3.10
-//     - SEE: https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-file-scheme-03#section-2
+//   - SEE: https://datatracker.ietf.org/doc/html/rfc1738#section-3.10
+//   - SEE: https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-file-scheme-03#section-2
 //
 // Notes:
-// - Optionally, credentials for each/any proxy specified in the PAC content can
-//   be set (`proxiesURIs`) using standard URI format. These credentials will be
-//   automatically set when `FindProxy` is called.
-// - URI is: scheme://credential@host/path` where:
+//   - Optionally, credentials for each/any proxy specified in the PAC content can
+//     be set (`proxiesURIs`) using standard URI format. These credentials will be
+//     automatically set when `FindProxy` is called.
+//   - URI is: scheme://credential@host/path` where:
 //   - `credential` is `username:password`, and is optional
 //   - `host` is `hostname:port`, and is optional.
 func New(textOrURI string, proxiesURIs ...string) (*Parser, error) {
